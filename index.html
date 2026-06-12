@@ -764,26 +764,19 @@ async function startBroadcast() {
   log(`Fetching notes for ${npubRaw.slice(0, 20)}…`, 'info');
 
   // ── STEP 1: Fetch using SimplePool.querySync across all read relays
-  // SimplePool handles dedup, parallel connections, and EOSE tracking internally
-  let pool = new nt.SimplePool();
+  // querySync(relays, filter) → Promise<Event[]>, resolves after EOSE from all relays
+  const pool = new nt.SimplePool();
   let events = [];
   try {
-    // querySync returns an async generator; collect all events until EOSE
-    const gen = pool.querySync(READ_RELAYS, filter);
-    // querySync resolves to an array in the bundle version
     const raw = await withTimeout(
-      (async () => {
-        const collected = [];
-        for await (const ev of gen) collected.push(ev);
-        return collected;
-      })(),
-      12000, // 12 second timeout for fetch
+      pool.querySync(READ_RELAYS, filter, { maxWait: 10000 }),
+      14000, // hard outer timeout slightly longer than maxWait
       []
     );
     events = dedup(raw);
     log(`↓ ${events.length} notes fetched across ${READ_RELAYS.length} relays`, 'ok');
   } catch (e) {
-    log('Fetch error: ' + e.message, 'err');
+    log('Fetch error: ' + (e.message || e), 'err');
   } finally {
     pool.close(READ_RELAYS);
   }
