@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coverage Checker — BROADCAST</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:        #080b10;
+    --surface:   #0d1117;
+    --panel:     #111820;
+    --border:    #1e2d3d;
+    --accent:    #00c2ff;
+    --accent2:   #7b2fff;
+    --hot:       #ff3c6f;
+    --text:      #d4e4f0;
+    --muted:     #4a6477;
+    --success:   #00e5a0;
+    --warn:      #ffb800;
+    --radius:    6px;
+    --font-ui:   'Space Grotesk', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    padding: 0 0 80px;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent), var(--accent2), var(--hot), var(--accent));
+    animation: spin 6s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  header h1 {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  header h1 span { color: var(--muted); }
+
+  header nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  header nav a {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  header nav a:hover { color: var(--accent); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .status-dot.live { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,194,255,0.12);
+  }
+  input::placeholder { color: var(--muted); }
+
+  /* ── CHECK BUTTON ── */
+  .check-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .check-btn:hover { opacity: 0.9; }
+  .check-btn:active { transform: scale(0.99); }
+  .check-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── SCOPE ── */
+  .scope-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  @media (max-width: 480px) { .scope-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .scope-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 9px 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .scope-btn:hover { border-color: var(--accent); color: var(--text); }
+  .scope-btn.active {
+    background: rgba(0,194,255,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── OVERALL SUMMARY ── */
+  .overview {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .overview.visible { display: flex; }
+
+  .overview-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .ov-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+  }
+  .ov-num {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 5px;
+  }
+  .ov-num.blue  { color: var(--accent); }
+  .ov-num.green { color: var(--success); }
+  .ov-num.warn  { color: var(--warn); }
+  .ov-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* overall relay coverage bar */
+  .coverage-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .coverage-title {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .relay-coverage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .rcl-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rcl-url {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    width: 220px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rcl-bar-wrap {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .rcl-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+  .rcl-count {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    width: 48px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── NOTE RESULTS ── */
+  .results-wrap { display: none; }
+  .results-wrap.visible { display: block; }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .results-title {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .results-count {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .note-card:hover { border-color: var(--muted); }
+
+  .note-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .note-score {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 52px;
+    text-align: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .score-high  { background: rgba(0,229,160,0.12); color: var(--success); border: 1px solid rgba(0,229,160,0.3); }
+  .score-mid   { background: rgba(255,184,0,0.1);  color: var(--warn);    border: 1px solid rgba(255,184,0,0.25); }
+  .score-low   { background: rgba(255,60,111,0.1); color: var(--hot);     border: 1px solid rgba(255,60,111,0.25); }
+
+  .note-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .note-preview {
+    font-size: 0.82rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .note-time {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+  }
+
+  .note-chevron {
+    font-size: 0.75rem;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .note-card.open .note-chevron { transform: rotate(90deg); }
+
+  /* note body (expanded) */
+  .note-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 16px;
+  }
+  .note-card.open .note-body { display: block; }
+
+  .note-content {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--panel);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  .relay-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  @media (max-width: 480px) { .relay-grid { grid-template-columns: 1fr; } }
+
+  .relay-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 7px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+  }
+  .relay-pill.found {
+    border-color: rgba(0,229,160,0.25);
+  }
+  .relay-pill.missing {
+    opacity: 0.4;
+  }
+  .pill-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pill-dot.found   { background: var(--success); }
+  .pill-dot.missing { background: var(--border); }
+  .pill-url {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .relay-pill.missing .pill-url { color: var(--muted); }
+
+  .note-id-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .note-id-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .note-id-val {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-bar-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    height: 4px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar-wrap.visible { display: block; }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.2s;
+  }
+
+  /* ── LOG ── */
+  .log-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .log-title {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .log-clear {
+    background: none; border: none;
+    color: var(--muted); font-family: var(--font-mono);
+    font-size: 0.65rem; cursor: pointer; transition: color 0.15s;
+  }
+  .log-clear:hover { color: var(--hot); }
+  .log-body {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 12px 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .log-line { display: flex; gap: 10px; align-items: baseline; animation: fadein 0.2s ease; }
+  @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  .log-time { color: var(--muted); flex-shrink: 0; font-size: 0.65rem; }
+  .log-msg  { flex: 1; word-break: break-all; }
+  .log-msg.ok   { color: var(--success); }
+  .log-msg.err  { color: var(--hot); }
+  .log-msg.info { color: var(--accent); }
+  .log-msg.warn { color: var(--warn); }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon"></div>
+  <h1>BROAD<span>CAST</span></h1>
+  <nav>
+    <a href="index.html">← Broadcaster</a>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">idle</span>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+  <!-- NPUB -->
+  <div class="card">
+    <div class="card-label">01 — Target Profile</div>
+    <input type="text" id="npubInput" placeholder="npub1... or hex pubkey" spellcheck="false" autocomplete="off" />
+  </div>
+
+  <!-- SCOPE -->
+  <div class="card">
+    <div class="card-label">02 — Time Range</div>
+    <div class="scope-grid">
+      <div class="scope-btn active" data-val="today"   onclick="setScope(this)">Today</div>
+      <div class="scope-btn"        data-val="week"    onclick="setScope(this)">This Week</div>
+      <div class="scope-btn"        data-val="month"   onclick="setScope(this)">This Month</div>
+      <div class="scope-btn"        data-val="3mo"     onclick="setScope(this)">3 Months</div>
+      <div class="scope-btn"        data-val="6mo"     onclick="setScope(this)">6 Months</div>
+      <div class="scope-btn"        data-val="1yr"     onclick="setScope(this)">1 Year</div>
+      <div class="scope-btn"        data-val="alltime" onclick="setScope(this)" style="grid-column:span 2">All Time</div>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- CHECK BUTTON -->
+  <button class="check-btn" id="checkBtn" onclick="startCheck()">
+    🔍 Check Coverage
+  </button>
+
+  <!-- OVERVIEW -->
+  <div class="overview" id="overview">
+    <div class="overview-stats">
+      <div class="ov-box">
+        <div class="ov-num blue"  id="ovNotes">0</div>
+        <div class="ov-label">Notes Checked</div>
+      </div>
+      <div class="ov-box">
+        <div class="ov-num green" id="ovRelays">0</div>
+        <div class="ov-label">Relays Checked</div>
+      </div>
+      <div class="ov-box">
+        <div class="ov-num warn"  id="ovAvg">0%</div>
+        <div class="ov-label">Avg Coverage</div>
+      </div>
+    </div>
+
+    <!-- Per-relay bar chart -->
+    <div class="coverage-wrap">
+      <div class="coverage-title">Notes found per relay</div>
+      <div class="relay-coverage-list" id="relayCoverageList"></div>
+    </div>
+  </div>
+
+  <!-- NOTE RESULTS -->
+  <div class="results-wrap" id="resultsWrap">
+    <div class="results-header">
+      <span class="results-title">Note Breakdown</span>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
+    <div id="noteList"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-wrap">
+    <div class="log-header">
+      <span class="log-title">Activity Log</span>
+      <button class="log-clear" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-line"><span class="log-time">--:--:--</span><span class="log-msg info">Ready. Paste an npub to check relay coverage.</span></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
+<script>
+// ── CHECK RELAYS (all relays we want to test coverage against)
+const CHECK_RELAYS = [
+  { url: 'wss://nostr.mutinywallet.com', type: 'blast' },
+  { url: 'wss://purplepag.es',           type: 'blast' },
+  { url: 'wss://nostr.wine',             type: 'blast' },
+  { url: 'wss://relay.nos.social',       type: 'blast' },
+  { url: 'wss://nostr21.com',            type: 'blast' },
+  { url: 'wss://blastr.f7z.xyz',         type: 'blast' },
+  { url: 'wss://nostr-relay.nokotaro.com', type: 'blast' },
+  { url: 'wss://nostr.coinfundit.com',   type: 'blast' },
+  { url: 'wss://relay.nostr.com.au',     type: 'blast' },
+  { url: 'wss://relay.damus.io',         type: 'standard' },
+  { url: 'wss://nostr.fmt.wiz.biz',      type: 'standard' },
+  { url: 'wss://relay.snort.social',     type: 'standard' },
+  { url: 'wss://nos.lol',                type: 'standard' },
+  { url: 'wss://relay.current.fyi',      type: 'standard' },
+  { url: 'wss://offchain.pub',           type: 'standard' },
+  { url: 'wss://nostr.zbd.gg',           type: 'standard' },
+  { url: 'wss://relay.primal.net',       type: 'standard' },
+  { url: 'wss://nostr.oxtr.dev',         type: 'standard' },
+  { url: 'wss://nostr-pub.wellorder.net', type: 'standard' },
+  { url: 'wss://relay.nostr.wirednet.jp', type: 'standard' },
+  { url: 'wss://soloco.nl',              type: 'standard' },
+  { url: 'wss://nostr.onsats.org',       type: 'standard' },
+];
+
+// Read relays for initial fetch (broad set)
+const READ_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.primal.net',
+  'wss://nos.lol',
+  'wss://nostr.fmt.wiz.biz',
+  'wss://relay.snort.social',
+  'wss://offchain.pub',
+  'wss://nostr.oxtr.dev',
+];
+
+let currentScope = 'today';
+
+function setScope(el) {
+  document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentScope = el.dataset.val;
+}
+window.setScope = setScope;
+
+function getSince(scope) {
+  const now = Math.floor(Date.now() / 1000);
+  const D = 86400, W = 7*D, M = 30*D;
+  return ({ today: now-D, week: now-W, month: now-M, '3mo': now-3*M,
+            '6mo': now-6*M, '1yr': now-365*D, alltime: 0 })[scope] ?? 0;
+}
+
+// ── LOG
+function log(msg, type = 'info') {
+  const body = document.getElementById('logBody');
+  const now  = new Date();
+  const ts   = [now.getHours(), now.getMinutes(), now.getSeconds()]
+               .map(n => String(n).padStart(2,'0')).join(':');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">${ts}</span><span class="log-msg ${type}">${msg}</span>`;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+function clearLog() { document.getElementById('logBody').innerHTML = ''; }
+window.clearLog = clearLog;
+
+function setStatus(s, live = false) {
+  document.getElementById('statusText').textContent = s;
+  document.getElementById('statusDot').className = 'status-dot' + (live ? ' live' : '');
+}
+
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([promise, new Promise(r => setTimeout(() => r(fallback), ms))]);
+}
+
+function dedup(arr) {
+  const seen = new Set();
+  return arr.filter(e => seen.has(e.id) ? false : (seen.add(e.id), true));
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor(Date.now()/1000) - ts;
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+function scoreClass(found, total) {
+  const pct = found / total;
+  if (pct >= 0.7) return 'score-high';
+  if (pct >= 0.4) return 'score-mid';
+  return 'score-low';
+}
+
+function relayColor(url) {
+  // gradient based on position in list — cycles through accent colors
+  const colors = ['#00c2ff','#00e5a0','#7b2fff','#ffb800','#ff3c6f'];
+  const idx = CHECK_RELAYS.findIndex(r => r.url === url);
+  return colors[idx % colors.length];
+}
+
+// ── MAIN CHECK
+async function startCheck() {
+  const nt = window.NostrTools;
+  if (!nt) { log('nostr-tools not loaded.', 'err'); return; }
+
+  const npubRaw = document.getElementById('npubInput').value.trim();
+  if (!npubRaw) { log('Paste an npub or hex pubkey first.', 'err'); return; }
+
+  let pubkey;
+  try {
+    if (npubRaw.startsWith('npub1')) {
+      const dec = nt.nip19.decode(npubRaw);
+      if (dec.type !== 'npub') throw new Error('not an npub');
+      pubkey = dec.data;
+    } else {
+      pubkey = npubRaw.toLowerCase();
+    }
+    if (!/^[0-9a-f]{64}$/.test(pubkey)) throw new Error('invalid hex');
+  } catch(e) {
+    log('Invalid npub / pubkey: ' + e.message, 'err'); return;
+  }
+
+  const btn = document.getElementById('checkBtn');
+  btn.disabled = true;
+  setStatus('fetching…', true);
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('overview').classList.remove('visible');
+  document.getElementById('resultsWrap').classList.remove('visible');
+  document.getElementById('noteList').innerHTML = '';
+
+  // ── STEP 1: Fetch notes
+  const filter = { kinds: [1], authors: [pubkey] };
+  const since = getSince(currentScope);
+  if (since > 0) filter.since = since;
+  filter.limit = 500;
+
+  log(`Fetching notes for ${npubRaw.slice(0,20)}…`, 'info');
+
+  const fetchPool = new nt.SimplePool();
+  let events = [];
+  try {
+    const raw = await withTimeout(
+      fetchPool.querySync(READ_RELAYS, filter, { maxWait: 10000 }),
+      14000, []
+    );
+    events = dedup(raw);
+    events.sort((a, b) => b.created_at - a.created_at);
+    log(`↓ ${events.length} notes fetched`, 'ok');
+  } catch(e) {
+    log('Fetch error: ' + (e.message || e), 'err');
+  } finally {
+    fetchPool.close(READ_RELAYS);
+  }
+
+  if (!events.length) {
+    log('No notes found. Try a wider time range.', 'err');
+    setStatus('idle'); btn.disabled = false; return;
+  }
+
+  // ── STEP 2: For each relay, check which note IDs it has
+  // Strategy: query each relay with the same filter, collect IDs found
+  log(`Checking coverage across ${CHECK_RELAYS.length} relays…`, 'info');
+
+  const relayFoundIds = new Map(); // relay url → Set of event ids
+  CHECK_RELAYS.forEach(r => relayFoundIds.set(r.url, new Set()));
+
+  const totalSteps = CHECK_RELAYS.length;
+  let done = 0;
+
+  // Query each relay independently (parallel)
+  const relayUrls = CHECK_RELAYS.map(r => r.url);
+
+  await Promise.all(CHECK_RELAYS.map(async (relay) => {
+    const rPool = new nt.SimplePool();
+    try {
+      const found = await withTimeout(
+        rPool.querySync([relay.url], filter, { maxWait: 8000 }),
+        10000, []
+      );
+      const idSet = relayFoundIds.get(relay.url);
+      found.forEach(ev => idSet.add(ev.id));
+      log(`✓ ${relay.url.replace('wss://','')}: ${found.length} notes`, 'ok');
+    } catch(e) {
+      log(`✗ ${relay.url.replace('wss://','')}: ${e.message || 'error'}`, 'warn');
+    } finally {
+      rPool.close([relay.url]);
+    }
+    done++;
+    document.getElementById('progressBar').style.width = Math.round(done/totalSteps*100) + '%';
+  }));
+
+  // ── STEP 3: Build per-note relay presence map
+  // notePresence[eventId] = { found: [urls], missing: [urls] }
+  const notePresence = new Map();
+  events.forEach(ev => {
+    const found   = CHECK_RELAYS.filter(r => relayFoundIds.get(r.url).has(ev.id)).map(r => r.url);
+    const missing = CHECK_RELAYS.filter(r => !relayFoundIds.get(r.url).has(ev.id)).map(r => r.url);
+    notePresence.set(ev.id, { found, missing });
+  });
+
+  // ── STEP 4: Render overview
+  const totalNotes  = events.length;
+  const totalRelays = CHECK_RELAYS.length;
+  let totalFound    = 0;
+  notePresence.forEach(p => totalFound += p.found.length);
+  const avgPct = Math.round(totalFound / (totalNotes * totalRelays) * 100);
+
+  document.getElementById('ovNotes').textContent  = totalNotes;
+  document.getElementById('ovRelays').textContent = totalRelays;
+  document.getElementById('ovAvg').textContent    = avgPct + '%';
+
+  // Per-relay coverage bars
+  const rcl = document.getElementById('relayCoverageList');
+  rcl.innerHTML = '';
+  // Sort by count descending
+  const relayStats = CHECK_RELAYS.map(r => ({
+    url: r.url,
+    type: r.type,
+    count: relayFoundIds.get(r.url).size,
+  })).sort((a,b) => b.count - a.count);
+
+  relayStats.forEach(rs => {
+    const pct = totalNotes > 0 ? Math.round(rs.count / totalNotes * 100) : 0;
+    const color = rs.type === 'blast' ? 'var(--hot)' : 'var(--accent)';
+    const row = document.createElement('div');
+    row.className = 'rcl-row';
+    row.innerHTML = `
+      <div class="rcl-url" title="${rs.url}">${rs.url.replace('wss://','')}</div>
+      <div class="rcl-bar-wrap">
+        <div class="rcl-bar" style="width:0%;background:${color}" data-pct="${pct}"></div>
+      </div>
+      <div class="rcl-count">${rs.count}/${totalNotes}</div>
+    `;
+    rcl.appendChild(row);
+  });
+  document.getElementById('overview').classList.add('visible');
+
+  // Animate bars after paint
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.rcl-bar').forEach(bar => {
+        bar.style.width = bar.dataset.pct + '%';
+      });
+    });
+  });
+
+  // ── STEP 5: Render per-note breakdown
+  const noteList = document.getElementById('noteList');
+  noteList.innerHTML = '';
+
+  events.forEach((ev, i) => {
+    const pres = notePresence.get(ev.id);
+    const foundCount   = pres.found.length;
+    const sc = scoreClass(foundCount, totalRelays);
+    const preview = (ev.content || '').replace(/\n+/g,' ').slice(0, 80) + (ev.content.length > 80 ? '…' : '');
+    const nevent = nt.nip19?.noteEncode ? nt.nip19.noteEncode(ev.id) : ev.id.slice(0,16)+'…';
+
+    const card = document.createElement('div');
+    card.className = 'note-card';
+    card.innerHTML = `
+      <div class="note-header" onclick="toggleNote(this.parentElement)">
+        <div class="note-score ${sc}">${foundCount}/${totalRelays}</div>
+        <div class="note-meta">
+          <div class="note-preview">${escHtml(preview || '[no text content]')}</div>
+          <div class="note-time">${timeAgo(ev.created_at)}</div>
+        </div>
+        <div class="note-chevron">›</div>
+      </div>
+      <div class="note-body">
+        <div class="note-content">${escHtml(ev.content || '[empty]')}</div>
+        <div class="relay-grid">
+          ${CHECK_RELAYS.map(r => {
+            const isFound = pres.found.includes(r.url);
+            return `<div class="relay-pill ${isFound ? 'found' : 'missing'}">
+              <div class="pill-dot ${isFound ? 'found' : 'missing'}"></div>
+              <div class="pill-url" title="${r.url}">${r.url.replace('wss://','')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="note-id-row">
+          <span class="note-id-label">note id</span>
+          <span class="note-id-val">${nevent}</span>
+        </div>
+      </div>
+    `;
+    noteList.appendChild(card);
+  });
+
+  document.getElementById('resultsCount').textContent = `${events.length} notes`;
+  document.getElementById('resultsWrap').classList.add('visible');
+
+  log(`Done. Avg coverage: ${avgPct}% across ${totalRelays} relays.`, avgPct >= 70 ? 'ok' : 'warn');
+  setStatus('done', false);
+  btn.disabled = false;
+}
+window.startCheck = startCheck;
+
+function toggleNote(card) {
+  card.classList.toggle('open');
+}
+window.toggleNote = toggleNote;
+
+function escHtml(str) {
+  return str
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -463,10 +463,13 @@
 <header>
   <div class="logo-icon"></div>
   <h1>BROAD<span>CAST</span></h1>
-  <div class="status-bar">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">idle</span>
-  </div>
+  <nav style="margin-left:auto;display:flex;align-items:center;gap:20px">
+    <a href="checker.html" style="font-family:var(--font-mono);font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color 0.15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Coverage Checker →</a>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText" style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted)">idle</span>
+    </div>
+  </nav>
 </header>
 
 <main>
